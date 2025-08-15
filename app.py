@@ -10,9 +10,9 @@ try:
 except Exception:
     OpenAI = None
 
-st.set_page_config(page_title="Finance Services Chatbot", layout="wide")
-st.title("💬 Finance Services Chatbot")
-st.caption("Educational use only — not legal or tax advice.")
+st.set_page_config(page_title="Zack Financial GPT", layout="wide")
+st.title("Zack Financial GPT")
+st.caption("ask a question about your business below")
 
 # --- Load services catalog ---
 @st.cache_data
@@ -29,8 +29,6 @@ firm_name = st.sidebar.text_input("Firm name", os.environ.get("FIRM_NAME", "Zack
 contact_email = st.sidebar.text_input("Contact email", os.environ.get("CONTACT_EMAIL", "info@zackfinancial.com"))
 model_name = st.sidebar.text_input("Model", os.environ.get("MODEL_NAME", "gpt-4o-mini"))
 
-st.sidebar.markdown("---")
-st.sidebar.write("**Deploy notes**: Set your `OPENAI_API_KEY` in Streamlit Secrets or as an environment variable on your host.")
 
 # --- Initialize OpenAI client ---
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
