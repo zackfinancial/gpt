@@ -39,6 +39,7 @@ if not OPENAI_API_KEY:
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY and OpenAI else None
 
 # --- Scheduling link (NEW) ---
+# You can override this via Streamlit secrets or environment variables if needed.
 SCHEDULING_LINK = st.secrets.get(
     "SCHEDULING_LINK",
     os.environ.get("SCHEDULING_LINK", "https://calendar.app.google/DSLnt8XzuZdZmG4k7"),
@@ -70,15 +71,16 @@ if "messages" not in st.session_state:
     ]
 
 def simple_match_services(user_text: str, catalog: List[Dict], top_k: int = 3) -> List[Dict]:
-    """Very simple keyword matcher (no embeddings to keep it free & generic)."""
-    text = (user_text or "").lower()
+    \"\"\"Very simple keyword matcher (no embeddings to keep it free & generic).\"\"\"
+    text = (user_text or \"\").lower()
     scored = []
     for svc in catalog:
         score = 0
-        for kw in (svc.get("keywords") or []):
+        for kw in (svc.get(\"keywords\") or []):
             if kw.lower() in text:
                 score += 1
-        score += sum(1 for w in (svc.get("name","") + " " + svc.get("summary","")).lower().split() if w in text)
+        score += sum(1 for w in (svc.get(\"name\",\"\") + \" \" + svc.get(\"summary\",\"\"))
+                     .lower().split() if w in text)
         scored.append((score, svc))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [s for sc, s in scored if sc > 0][:top_k] or catalog[:top_k]
@@ -87,21 +89,21 @@ def simple_match_services(user_text: str, catalog: List[Dict], top_k: int = 3) -
 chat_container = st.container()
 with chat_container:
     for m in st.session_state.messages:
-        if m["role"] == "user":
-            st.chat_message("user").write(m["content"])
-        elif m["role"] in ("assistant", "system"):
-            if m["role"] == "assistant":
-                st.chat_message("assistant").write(m["content"])
+        if m[\"role\"] == \"user\":
+            st.chat_message(\"user\").write(m[\"content\"])
+        elif m[\"role\"] in (\"assistant\", \"system\"):
+            if m[\"role\"] == \"assistant\":
+                st.chat_message(\"assistant\").write(m[\"content\"])
 
-user_input = st.chat_input("Ask a finance question...")
+user_input = st.chat_input(\"Ask a finance question...\")
 if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    st.chat_message("user").write(user_input)
+    st.session_state.messages.append({\"role\": \"user\", \"content\": user_input})
+    st.chat_message(\"user\").write(user_input)
 
     matched = simple_match_services(user_input, services, top_k=3)
 
     # Inject firm context + explicit scheduling instruction for the model (NEW)
-    assistant_guidelines = f"""
+    assistant_guidelines = f\"\"\"
     You are representing {firm_name}. The user's email contact is {contact_email}.
 
     Rules:
@@ -109,32 +111,33 @@ if user_input:
     - If the user asks to book, schedule, or meet, provide this exact link verbatim as a Markdown link:
       [Schedule a Consultation]({SCHEDULING_LINK})
     - If needed, ask up to 2 clarifying questions.
-    """
+    \"\"\"
 
-    assistant_content = "I'm currently offline; please configure OPENAI_API_KEY to enable responses."
+    assistant_content = \"I'm currently offline; please configure OPENAI_API_KEY to enable responses.\"
     if client:
         try:
             resp = client.responses.create(
                 model=model_name,
                 input=[
-                    {"role": "system", "content": assistant_guidelines},
-                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if m["role"] != "system"]
+                    {\"role\": \"system\", \"content\": assistant_guidelines},
+                    *[{\"role\": m[\"role\"], \"content\": m[\"content\"]}
+                      for m in st.session_state.messages if m[\"role\"] != \"system\"]
                 ],
             )
-            if hasattr(resp, "output_text"):
+            if hasattr(resp, \"output_text\"):
                 assistant_content = resp.output_text
             else:
                 assistant_content = str(resp)
         except Exception as e:
-            assistant_content = f"Error reaching the model: {e}"
+            assistant_content = f\"Error reaching the model: {e}\"
 
     # If user clearly wants to schedule, ensure the link is shown even if the model didn't include it (NEW)
-    if wants_scheduling(user_input) and SCHEDULING_LINK not in (assistant_content or ""):
-        booking_line = f"\n\nYou can book a time that works for you here: [Schedule a Consultation]({SCHEDULING_LINK})"
-        assistant_content = (assistant_content or "") + booking_line
+    if wants_scheduling(user_input) and SCHEDULING_LINK not in (assistant_content or \"\"):
+        booking_line = f\"\\n\\nYou can book a time that works for you here: [Schedule a Consultation]({SCHEDULING_LINK})\"
+        assistant_content = (assistant_content or \"\") + booking_line
 
-    st.session_state.messages.append({"role": "assistant", "content": assistant_content})
-    st.chat_message("assistant").write(assistant_content)
+    st.session_state.messages.append({\"role\": \"assistant\", \"content\": assistant_content})
+    st.chat_message(\"assistant\").write(assistant_content)
 
-st.markdown("---")
-st.caption(f"© {time.strftime('%Y')} {firm_name} — Educational information only.")
+st.markdown(\"---\")
+st.caption(f\"© {time.strftime('%Y')} {firm_name} — Educational information only.\")
