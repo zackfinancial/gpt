@@ -1,0 +1,45 @@
+services:
+  - name: Monthly Bookkeeping
+    summary: Ongoing reconciliation, categorization, and close support for small businesses.
+    deliverables:
+      - Monthly bank and credit card reconciliations
+      - Categorized transactions and basic financial statements
+      - Accounts receivable/payable tracking
+    price_range: "$300–$1,200/mo"
+    keywords: ["bookkeeping", "reconcile", "transactions", "quickbooks", "xero", "monthly close"]
+
+  - name: Controller Services
+    summary: Part-time controller support for better controls, reporting, and cash management.
+    deliverables:
+      - Close calendar & variance analysis
+      - Cash flow management and KPI dashboards
+      - Process documentation and controls
+    price_range: "$1,500–$5,000/mo"
+    keywords: ["controller", "close", "variance", "cash flow", "kpi", "controls"]
+
+  - name: CFO Advisory
+    summary: Strategic finance support including planning, fundraising readiness, and board reporting.
+    deliverables:
+      - Financial model and scenario analysis
+      - Board-ready reporting package
+      - Capital planning and fundraising prep
+    price_range: "$3,000–$12,000/mo"
+    keywords: ["cfo", "forecast", "model", "fundraise", "board", "strategy"]
+
+  - name: Tax Preparation & Planning (Business)
+    summary: Business entity returns and proactive planning to avoid surprises.
+    deliverables:
+      - Federal and state income tax returns
+      - Estimated tax planning
+      - Quarterly check-ins
+    price_range: "$1,000–$6,000+"
+    keywords: ["tax", "s-corp", "llc", "c-corp", "deductions", "return"]
+
+  - name: Cleanup & Catch-Up
+    summary: Historical bookkeeping clean-up to bring books current before ongoing service.
+    deliverables:
+      - Past period reconciliations
+      - Reclassifications and adjustments
+      - Issue log and recommendations
+    price_range: "Custom"
+    keywords: ["cleanup", "catch-up", "historical", "backlog", "fix books"]

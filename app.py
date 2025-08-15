@@ -1,0 +1,146 @@
+import os
+import time
+import yaml
+import streamlit as st
+from typing import List, Dict
+
+# Optional: 'openai' package supports the modern Responses API.
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
+st.set_page_config(page_title="Finance Services Chatbot", layout="wide")
+st.title("💬 Finance Services Chatbot")
+st.caption("Educational use only — not legal or tax advice.")
+
+# --- Load services catalog ---
+@st.cache_data
+def load_services() -> List[Dict]:
+    with open("services.yaml", "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("services", [])
+
+services = load_services()
+
+# --- Sidebar config ---
+st.sidebar.header("Firm Settings")
+firm_name = st.sidebar.text_input("Firm name", os.environ.get("FIRM_NAME", "Zack Financial"))
+contact_email = st.sidebar.text_input("Contact email", os.environ.get("CONTACT_EMAIL", "hello@example.com"))
+model_name = st.sidebar.text_input("Model", os.environ.get("MODEL_NAME", "gpt-4o-mini"))
+show_service_cards = st.sidebar.checkbox("Show service suggestions", True)
+
+st.sidebar.markdown("---")
+st.sidebar.write("**Deploy notes**: Set your `OPENAI_API_KEY` in Streamlit Secrets or as an environment variable on your host.")
+
+# --- Initialize OpenAI client ---
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+if not OPENAI_API_KEY:
+    st.warning("No OPENAI_API_KEY found. Add it in Streamlit secrets or as an environment variable to enable responses.")
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY and OpenAI else None
+
+# --- Session State ---
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": (
+            "You are a concise, friendly finance assistant for a CPA/Advisory firm. "
+            "Answer questions clearly (aim for 5-8 sentences max), ask 1-2 clarifying questions when needed, "
+            "and never provide legal/tax advice—stick to educational guidance only. "
+            "When applicable, suggest up to 3 services from the provided catalog that could help the user. "
+            "End with a short call to action like: 'If you'd like help, email us at {contact_email}.'"
+        )}
+    ]
+
+def render_services(matches: List[Dict]):
+    if not show_service_cards or not matches:
+        return
+    st.markdown("### Recommended Services")
+    cols = st.columns(min(3, len(matches)))
+    for i, svc in enumerate(matches):
+        with cols[i % len(cols)]:
+            st.markdown(f"**{svc.get('name','Service')}**")
+            st.caption(svc.get("summary",""))
+            bullets = svc.get("deliverables", [])[:4]
+            if bullets:
+                st.markdown("- " + "\n- ".join(bullets))
+            price = svc.get("price_range", "Custom pricing")
+            st.markdown(f"*Typical range:* **{price}**")
+
+def simple_match_services(user_text: str, catalog: List[Dict], top_k: int = 3) -> List[Dict]:
+    """Very simple keyword matcher (no embeddings to keep it free & generic)."""
+    text = (user_text or "").lower()
+    scored = []
+    for svc in catalog:
+        score = 0
+        for kw in (svc.get("keywords") or []):
+            if kw.lower() in text:
+                score += 1
+        # also match on name/summary words
+        score += sum(1 for w in (svc.get("name","") + " " + svc.get("summary","")).lower().split() if w in text)
+        scored.append((score, svc))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [s for sc, s in scored if sc > 0][:top_k] or catalog[:top_k]
+
+# --- Chat UI ---
+chat_container = st.container()
+with chat_container:
+    for m in st.session_state.messages:
+        if m["role"] == "user":
+            st.chat_message("user").write(m["content"])
+        elif m["role"] in ("assistant", "system"):
+            # Only display assistant messages; system is hidden once initialised
+            if m["role"] == "assistant":
+                st.chat_message("assistant").write(m["content"])
+
+user_input = st.chat_input("Ask a finance question...")
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.chat_message("user").write(user_input)
+
+    # Determine service suggestions upfront
+    matched = simple_match_services(user_input, services, top_k=3)
+
+    # Build the assistant prompt
+    svc_list = "\n".join([
+        f"- {svc.get('name')}: {svc.get('summary')} (Range: {svc.get('price_range','N/A')})"
+        for svc in services
+    ]) or "No services defined."
+    assistant_guidelines = f"""
+    You are representing {firm_name}. The user's email contact is {contact_email}.
+    Services catalog:
+    {svc_list}
+
+    Rules:
+    - Be concise (5-8 sentences). Educational, not legal/tax advice.
+    - If needed, ask up to 2 clarifying questions.
+    - When relevant, explain which 1-3 services could help and why.
+    - End with: "If you'd like help, email us at {contact_email}."
+    """
+
+    assistant_content = "I'm currently offline; please configure OPENAI_API_KEY to enable responses."
+    if client:
+        try:
+            resp = client.responses.create(
+                model=model_name,
+                input=[
+                    {"role": "system", "content": assistant_guidelines},
+                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if m["role"] != "system"]
+                ],
+            )
+            # Extract text (Responses API)
+            if hasattr(resp, "output_text"):
+                assistant_content = resp.output_text
+            else:
+                # Fallback parsing
+                assistant_content = str(resp)
+        except Exception as e:
+            assistant_content = f"Error reaching the model: {e}"
+
+    st.session_state.messages.append({"role": "assistant", "content": assistant_content})
+    st.chat_message("assistant").write(assistant_content)
+
+    # Render service suggestions
+    render_services(matched)
+
+st.markdown("---")
+st.caption(f"© {time.strftime('%Y')} {firm_name} — Educational information only.")
